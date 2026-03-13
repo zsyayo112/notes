@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COMP2041 Week 4 — Shell Scripting 交互式笔记</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --bg2: #161b22;
+    --bg3: #1c2128;
+    --border: #30363d;
+    --green: #3fb950;
+    --green-dim: #238636;
+    --yellow: #e3b341;
+    --blue: #58a6ff;
+    --cyan: #39d353;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --orange: #ffa657;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #f0f6fc;
+    --prompt: #3fb950;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 32px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 70% 50%, rgba(63,185,80,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-tag {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 12px;
+  }
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(22px, 4vw, 38px);
+    font-weight: 800;
+    color: var(--text-bright);
+    line-height: 1.2;
+  }
+  header h1 span { color: var(--green); }
+  .header-sub {
+    margin-top: 12px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  .stats-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .stat-chip b { color: var(--yellow); }
+
+  /* ── Layout ── */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  /* ── Section headers ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 48px 0 20px;
+  }
+  .section-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--green);
+    background: rgba(63,185,80,0.1);
+    border: 1px solid rgba(63,185,80,0.3);
+    border-radius: 4px;
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-bright);
+  }
+
+  /* ── Knowledge cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .card-title {
+    padding: 14px 18px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-bright);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .icon { font-size: 16px; }
+  .card-body { padding: 16px 18px; }
+  .card-body p { color: var(--text); margin-bottom: 10px; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Terminal ── */
+  .terminal {
+    background: #010409;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    margin: 12px 0;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+  .terminal-bar {
+    background: #161b22;
+    border-bottom: 1px solid #21262d;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .terminal-label {
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+  .terminal-body { padding: 14px 18px; line-height: 1.9; }
+  .cmd { color: var(--green); }
+  .cmd::before { content: '$ '; color: var(--prompt); font-weight: 600; }
+  .out { color: var(--text); padding-left: 0; }
+  .cmt { color: var(--text-dim); font-style: italic; }
+  .kw { color: var(--purple); }
+  .var { color: var(--orange); }
+  .str { color: var(--yellow); }
+  .flag { color: var(--cyan); }
+  .err { color: var(--red); }
+  .good { color: var(--green); }
+
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th {
+    background: var(--bg3);
+    color: var(--text-bright);
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 2px solid var(--green-dim);
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .mono { font-family: 'JetBrains Mono', monospace; color: var(--cyan); }
+  .note { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+
+  /* ── Warning / tip boxes ── */
+  .box {
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 12px 0;
+    font-size: 13px;
+    border-left: 3px solid;
+  }
+  .box-warn { background: rgba(227,179,65,0.08); border-color: var(--yellow); }
+  .box-tip  { background: rgba(63,185,80,0.08);  border-color: var(--green); }
+  .box-err  { background: rgba(248,81,73,0.08);  border-color: var(--red); }
+  .box-title { font-weight: 700; margin-bottom: 6px; font-family: 'Syne', sans-serif; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+  .box-warn .box-title { color: var(--yellow); }
+  .box-tip  .box-title  { color: var(--green); }
+  .box-err  .box-title  { color: var(--red); }
+
+  /* ── Quiz ── */
+  .quiz-section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-bright);
+    margin: 56px 0 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .quiz-subtitle {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-bottom: 32px;
+  }
+  .quiz-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .quiz-card:hover { border-color: #444c56; }
+  .quiz-header {
+    padding: 16px 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    user-select: none;
+  }
+  .quiz-header:hover { background: rgba(255,255,255,0.02); }
+  .difficulty {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .easy   { background: rgba(63,185,80,0.15);  color: var(--green);  border: 1px solid rgba(63,185,80,0.3); }
+  .medium { background: rgba(227,179,65,0.15); color: var(--yellow); border: 1px solid rgba(227,179,65,0.3); }
+  .hard   { background: rgba(248,81,73,0.15);  color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
+  .boss   { background: rgba(188,140,255,0.15);color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+
+  .quiz-q {
+    flex: 1;
+    color: var(--text-bright);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .quiz-q .q-num { color: var(--text-dim); font-size: 12px; margin-bottom: 4px; }
+  .chevron {
+    color: var(--text-dim);
+    font-size: 18px;
+    transition: transform 0.25s;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .quiz-card.open .chevron { transform: rotate(90deg); }
+
+  .quiz-answer {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+  }
+  .quiz-card.open .quiz-answer { display: block; }
+  .answer-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 16px 0 10px;
+  }
+  .explain {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--bg3);
+    border-radius: 6px;
+    border-left: 2px solid var(--border);
+    line-height: 1.8;
+  }
+  .explain b { color: var(--yellow); }
+  .explain code { color: var(--cyan); background: rgba(88,166,255,0.08); padding: 1px 5px; border-radius: 3px; }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--bg);
+    z-index: 100;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green), var(--cyan));
+    width: 0%;
+    transition: width 0.2s;
+  }
+
+  /* ── Score tracker ── */
+  .score-tracker {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    color: var(--text-dim);
+    z-index: 50;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .score-num {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--green);
+    line-height: 1;
+    margin-top: 2px;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 40px;
+  }
+  .toc-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 12px;
+    font-size: 14px;
+  }
+  .toc ul { list-style: none; }
+  .toc li { margin: 6px 0; }
+  .toc a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    transition: color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toc a:hover { color: var(--green); }
+  .toc a::before { content: '›'; color: var(--border); }
+  .toc a:hover::before { color: var(--green); }
+
+  /* ── inline code ── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--cyan);
+    background: rgba(88,166,255,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.95em;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+<header>
+  <div class="header-tag">COMP2041 / COMP9044 · 26T1</div>
+  <h1>Week 4 — <span>Shell Scripting</span> 交互式笔记</h1>
+  <p class="header-sub">Tutorial Questions + Lecture Slides 综合整理 · 边看边敲 边看边测</p>
+  <div class="stats-row">
+    <div class="stat-chip"><b>6</b> 知识模块</div>
+    <div class="stat-chip"><b>15</b> 练习题</div>
+    <div class="stat-chip"><b>1</b> 综合挑战题</div>
+    <div class="stat-chip">Shell: <b>dash</b></div>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="toc">
+    <div class="toc-title">📖 目录</div>
+    <ul>
+      <li><a href="#s1">01 · 子 Shell 与变量作用域</a></li>
+      <li><a href="#s2">02 · 引号、波浪号展开与路径</a></li>
+      <li><a href="#s3">03 · 条件判断与 test</a></li>
+      <li><a href="#s4">04 · 循环 (for / while)</a></li>
+      <li><a href="#s5">05 · sed 与文本替换</a></li>
+      <li><a href="#s6">06 · 管道、find 与 PATH</a></li>
+      <li><a href="#quiz">🎯 练习题（全部可折叠）</a></li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s1">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <span class="section-title">子 Shell 与变量作用域</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🔑</span>核心规则：cd 和变量修改不会逃出子 Shell</div>
+      <div class="card-body">
+        <p>Tutorial Q1 的经典陷阱：脚本里 <code>cd</code> 只在子 Shell 里生效，父 Shell 的 <code>pwd</code> 不变。变量赋值同理。</p>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">子 Shell 陷阱</div></div>
+          <div class="terminal-body">
+<div class="cmt"># 脚本 start_lab04.sh 内容：</div>
+<div class="out"><span class="kw">cd</span> ~/labs/04</div>
+<div class="out"><span class="var">ex1</span>=jpg2png</div>
+<br>
+<div class="cmt"># 运行后：</div>
+<div class="cmd">./start_lab04.sh</div>
+<div class="cmd">pwd</div>
+<div class="out">/home/z1234567   <span class="cmt"># 没变！cd 只在子 Shell 里生效</span></div>
+<div class="cmd">echo $ex1</div>
+<div class="out">              <span class="cmt"># 空！变量也没有传回来</span></div>
+          </div>
+        </div>
+        <div class="box box-tip">
+          <div class="box-title">✅ 修复方法</div>
+          用 <code>source</code>（或 <code>.</code>）在当前 Shell 里执行脚本：<br><br>
+          <code>source start_lab04.sh</code> &nbsp;或&nbsp; <code>. start_lab04.sh</code>
+        </div>
+        <table>
+          <tr><th>执行方式</th><th>cd 生效？</th><th>变量生效？</th></tr>
+          <tr><td class="mono">./script.sh</td><td>❌（子 Shell）</td><td>❌（子 Shell）</td></tr>
+          <tr><td class="mono">bash script.sh</td><td>❌（子 Shell）</td><td>❌（子 Shell）</td></tr>
+          <tr><td class="mono">source script.sh</td><td>✅（当前 Shell）</td><td>✅（当前 Shell）</td></tr>
+          <tr><td class="mono">. script.sh</td><td>✅（当前 Shell）</td><td>✅（当前 Shell）</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s2">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <span class="section-title">引号、波浪号展开与路径</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">💬</span>引号对比：单引号 vs 双引号 vs 无引号</div>
+      <div class="card-body">
+        <table>
+          <tr><th>语法</th><th>变量展开</th><th>命令替换</th><th>通配符展开</th><th>单词分割</th></tr>
+          <tr><td class="mono">'...'</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+          <tr><td class="mono">"..."</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td class="mono">无引号</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🐛</span>Tutorial Q3 — 波浪号在双引号里失效</div>
+      <div class="card-body">
+        <p>Shruti 的符号链接脚本出 bug，原因是 <code>"~/friends/$image_file"</code> 里的 <code>~</code> 不会被展开：</p>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">broken symlinks</div></div>
+          <div class="terminal-body">
+<div class="cmt"># ❌ 错误版本 — 波浪号在双引号内不展开</div>
+<div class="out"><span class="kw">for</span> image_file <span class="kw">in</span> <span class="kw">$(</span>ls ~/friends<span class="kw">)</span>; <span class="kw">do</span></div>
+<div class="out">    ln -s <span class="str">"~/friends/$image_file"</span> .</div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># 链接目标是字面量字符串 "~/friends/xxx"，不是真实路径</div>
+<div class="cmd">ls -la photo.jpg</div>
+<div class="out">photo.jpg -> ~/friends/photo.jpg   <span class="err">← 这个路径根本不存在！</span></div>
+          </div>
+        </div>
+        <div class="box box-tip">
+          <div class="box-title">✅ 三种修复方案</div>
+          <div class="terminal">
+            <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">正确写法</div></div>
+            <div class="terminal-body">
+<div class="cmt"># 方案 1：用 $HOME 变量（在双引号里会展开）</div>
+<div class="out">ln -s <span class="str">"$HOME/friends/$image_file"</span> .</div>
+<br>
+<div class="cmt"># 方案 2：把 ~ 放在引号外面</div>
+<div class="out">ln -s ~<span class="str">"/friends/$image_file"</span> .</div>
+<br>
+<div class="cmt"># 方案 3：用 glob 代替 ls（更健壮，避免文件名含空格问题）</div>
+<div class="out"><span class="kw">for</span> image_file <span class="kw">in</span> ~/friends/*; <span class="kw">do</span></div>
+<div class="out">    ln -s <span class="str">"$image_file"</span> .</div>
+<div class="out"><span class="kw">done</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="box box-warn">
+          <div class="box-title">⚠️ 额外陷阱：不要用 ls 遍历文件</div>
+          <code>for f in $(ls dir)</code> 会在文件名含空格时出错。应直接用 glob：<code>for f in dir/*</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s3">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <span class="section-title">条件判断与 test</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🧪</span>test / [ ] 常用运算符速查</div>
+      <div class="card-body">
+        <table>
+          <tr><th>类别</th><th>运算符</th><th>含义</th><th>示例</th></tr>
+          <tr><td>字符串</td><td class="mono">= &nbsp;!=</td><td>相等 / 不等</td><td class="mono">[ "$a" = "hello" ]</td></tr>
+          <tr><td>数值</td><td class="mono">-eq -ne -lt -le -gt -ge</td><td>数值比较</td><td class="mono">[ "$n" -lt 10 ]</td></tr>
+          <tr><td>文件</td><td class="mono">-f -d -r -x -e</td><td>是文件/目录/可读/可执行/存在</td><td class="mono">[ -f "foo.c" ]</td></tr>
+          <tr><td>逻辑</td><td class="mono">-a &nbsp;-o &nbsp;!</td><td>与 / 或 / 非</td><td class="mono">[ -f f -a -r f ]</td></tr>
+        </table>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">is_business_hours.sh — Tutorial Q2</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="cmt"># 退出状态 0 = 上班时间，1 = 下班时间</div>
+<div class="out"><span class="var">hour</span>=$(date <span class="str">'+%H'</span>)</div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$hour"</span> <span class="flag">-ge</span> 9 ] && [ <span class="str">"$hour"</span> <span class="flag">-lt</span> 17 ]; <span class="kw">then</span></div>
+<div class="out">    <span class="kw">exit</span> 0   <span class="cmt"># 上班时间</span></div>
+<div class="out"><span class="kw">else</span></div>
+<div class="out">    <span class="kw">exit</span> 1   <span class="cmt"># 下班时间</span></div>
+<div class="out"><span class="kw">fi</span></div>
+<br>
+<div class="cmt"># 测试：</div>
+<div class="cmd">date '+%H'</div>
+<div class="out">15</div>
+<div class="cmd">./is_business_hours.sh && echo "Working hours" || echo "Off hours"</div>
+<div class="out good">Working hours</div>
+          </div>
+        </div>
+        <div class="box box-warn">
+          <div class="box-title">⚠️ 变量必须加引号</div>
+          <code>[ $msg = Hello ]</code> 当 <code>msg="hello world"</code> 时展开为 <code>[ hello world = Hello ]</code>，报错！<br>
+          正确写法：<code>[ "$msg" = "Hello" ]</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s4">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <span class="section-title">循环 (for / while)</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🔄</span>is_prime.sh + primes.sh — Tutorial Q9</div>
+      <div class="card-body">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">is_prime.sh</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">n</div><div class="out">=$1</div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$n"</span> <span class="flag">-lt</span> 2 ]; <span class="kw">then</span></div>
+<div class="out">    echo <span class="str">"$n is not prime"</span>; <span class="kw">exit</span> 1</div>
+<div class="out"><span class="kw">fi</span></div>
+<div class="var">i</div><div class="out">=2</div>
+<div class="out"><span class="kw">while</span> [ <span class="str">"$i"</span> <span class="flag">-lt</span> <span class="str">"$n"</span> ]; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ $(( n % i )) <span class="flag">-eq</span> 0 ]; <span class="kw">then</span></div>
+<div class="out">        echo <span class="str">"$n is not prime"</span>; <span class="kw">exit</span> 1</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out">    <span class="var">i</span>=$(( i + 1 ))</div>
+<div class="out"><span class="kw">done</span></div>
+<div class="out">echo <span class="str">"$n is prime"</span>; <span class="kw">exit</span> 0</div>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">primes.sh</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">limit</div><div class="out">=$1</div>
+<div class="var">i</div><div class="out">=2</div>
+<div class="out"><span class="kw">while</span> [ <span class="str">"$i"</span> <span class="flag">-lt</span> <span class="str">"$limit"</span> ]; <span class="kw">do</span></div>
+<div class="out">    ./is_prime.sh <span class="str">"$i"</span> > /dev/null && echo <span class="str">"$i"</span></div>
+<div class="out">    <span class="var">i</span>=$(( i + 1 ))</div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># 测试</div>
+<div class="cmd">./primes.sh 20</div>
+<div class="out good">2  3  5  7  11  13  17  19</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">👁️</span>recompile.sh — Tutorial Q10 & Q11</div>
+      <div class="card-body">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">recompile.sh (stat 版本)</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">cfile</div><div class="out">=$1</div>
+<div class="var">last_mod</div><div class="out">=0</div>
+<div class="out"><span class="kw">while true</span>; <span class="kw">do</span></div>
+<div class="out">    <span class="var">current_mod</span>=$(stat <span class="flag">-c</span> <span class="str">'%Y'</span> <span class="str">"$cfile"</span>)</div>
+<div class="out">    <span class="kw">if</span> [ <span class="str">"$current_mod"</span> <span class="flag">-ne</span> <span class="str">"$last_mod"</span> ]; <span class="kw">then</span></div>
+<div class="out">        <span class="var">last_mod</span>=<span class="str">"$current_mod"</span></div>
+<div class="out">        <span class="kw">if</span> gcc <span class="str">"$cfile"</span> <span class="flag">-o</span> a.out; <span class="kw">then</span></div>
+<div class="out">            ./a.out</div>
+<div class="out">        <span class="kw">fi</span></div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out">    sleep 1</div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">recompile.sh (inotifywait 版本 — 更高效)</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">cfile</div><div class="out">=$1</div>
+<div class="out"><span class="kw">while</span> inotifywait <span class="flag">-e</span> close_write <span class="str">"$cfile"</span>; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> gcc <span class="str">"$cfile"</span> <span class="flag">-o</span> a.out; <span class="kw">then</span></div>
+<div class="out">        ./a.out</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+        <div class="box box-tip">
+          <div class="box-title">💡 为什么用 inotifywait 更好？</div>
+          <code>stat</code> 版本每秒轮询一次，持续消耗 CPU。<code>inotifywait</code> 让内核在文件发生变化时才唤醒进程，CPU 开销几乎为零。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s5">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <span class="section-title">sed 与文本替换</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">✏️</span>update_course_code.sh — Tutorial Q4 & Q5</div>
+      <div class="card-body">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">update_course_code.sh (基本版)</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="out"><span class="kw">for</span> file <span class="kw">in</span> <span class="str">"$@"</span>; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ <span class="flag">-f</span> <span class="str">"$file"</span> ]; <span class="kw">then</span></div>
+<div class="out">        sed <span class="flag">-i</span> <span class="str">'s/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g'</span> <span class="str">"$file"</span></div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># 测试</div>
+<div class="cmd">echo "COMP2041 and COMP9044 are great" > test.txt</div>
+<div class="cmd">./update_course_code.sh test.txt</div>
+<div class="cmd">cat test.txt</div>
+<div class="out good">COMP2042 and COMP9042 are great</div>
+          </div>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">update_course_code.sh (含子目录版 — Tutorial Q5)</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="out"><span class="kw">for</span> arg <span class="kw">in</span> <span class="str">"$@"</span>; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ <span class="flag">-d</span> <span class="str">"$arg"</span> ]; <span class="kw">then</span></div>
+<div class="out">        <span class="cmt"># 目录：递归找所有文件</span></div>
+<div class="out">        find <span class="str">"$arg"</span> <span class="flag">-type f</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> file; <span class="kw">do</span></div>
+<div class="out">            sed <span class="flag">-i</span> <span class="str">'s/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g'</span> <span class="str">"$file"</span></div>
+<div class="out">        <span class="kw">done</span></div>
+<div class="out">    <span class="kw">elif</span> [ <span class="flag">-f</span> <span class="str">"$arg"</span> ]; <span class="kw">then</span></div>
+<div class="out">        sed <span class="flag">-i</span> <span class="str">'s/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g'</span> <span class="str">"$arg"</span></div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🔍</span>grep + sed 提取 zID — Tutorial Q6</div>
+      <div class="card-body">
+        <p>从 <code>mlalias</code> 输出中提取 <code>z</code> 开头的 UNSW zID：</p>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">管道流水线</div></div>
+          <div class="terminal-body">
+<div class="cmd">mlalias cs2041.25T2.tutors | grep -E '^\s+z[0-9]+$' | tr -d ' '</div>
+<div class="out good">z9300162</div>
+<div class="out good">z5115658</div>
+<div class="out good">...</div>
+<br>
+<div class="cmt"># 解析：</div>
+<div class="cmt"># grep -E '^\s+z[0-9]+$'  — 匹配只有空格+zID的行</div>
+<div class="cmt"># tr -d ' '               — 去掉前导空格</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <div id="s6">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <span class="section-title">管道、find 与 PATH 搜索</span>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🛤️</span>which.sh — Tutorial Q13</div>
+      <div class="card-body">
+        <p>手动实现 <code>which</code>：在 PATH 的每个目录里用 <code>ls</code> 查找可执行文件：</p>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">which.sh</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">program</div><div class="out">=$1</div>
+<div class="var">found</div><div class="out">=0</div>
+<div class="cmt"># 用 tr 把 PATH 里的冒号换成换行，逐行处理</div>
+<div class="out">echo <span class="str">"$PATH"</span> | tr <span class="str">':'</span> <span class="str">'\n'</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> dir; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ <span class="flag">-x</span> <span class="str">"${dir}/${program}"</span> ]; <span class="kw">then</span></div>
+<div class="out">        ls <span class="flag">-la</span> <span class="str">"${dir}/${program}"</span></div>
+<div class="out">        <span class="var">found</span>=1</div>
+<div class="out">        break</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$found"</span> <span class="flag">-eq</span> 0 ]; <span class="kw">then</span></div>
+<div class="out">    echo <span class="str">"$program not found"</span></div>
+<div class="out"><span class="kw">fi</span></div>
+<br>
+<div class="cmd">./which.sh cat</div>
+<div class="out good">-rwxr-xr-x 1 root root 43936 Sep 24 18:36 /bin/cat</div>
+<div class="cmd">./which.sh lost</div>
+<div class="out good">lost not found</div>
+          </div>
+        </div>
+        <div class="box box-warn">
+          <div class="box-title">⚠️ 目录名含空格的处理</div>
+          使用 <code>IFS= read -r dir</code> 而不是 <code>for dir in $(echo $PATH | tr ':' ' ')</code>，防止含空格的目录名被错误分割。
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span>综合管道：统计 COMP2041 tutors 的课程</div>
+      <div class="card-body">
+        <p>Tutorial Q8：用 mlalias 取 tutor zID，对每个 zID 调用 acc，从输出中提取 Student 角色课程，统计频次：</p>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">tutor_courses.sh 逻辑概览</div></div>
+          <div class="terminal-body">
+<div class="cmt"># Step 1：获取所有 tutor 的 zID</div>
+<div class="cmd">mlalias cs2041.25T2.tutors | grep -E '^\s+z[0-9]+$' | tr -d ' '</div>
+<br>
+<div class="cmt"># Step 2：对每个 zID，从 acc 输出提取 Student 课程</div>
+<div class="cmt"># acc 输出中 "3785_Student" 或 "COMPXXXX_Student" 表示学生身份</div>
+<div class="cmd">acc z5218654 | grep -oE 'COMP[0-9]+' | grep -v 'Supervisor'</div>
+<br>
+<div class="cmt"># Step 3：汇总所有课程，排序计数</div>
+<div class="cmt"># ... | sort | uniq -c | sort -rn</div>
+<div class="out good">7 COMP6771</div>
+<div class="out good">6 COMP3900</div>
+<div class="out good">5 COMP3311</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">📋</span>Shell 核心命令速查</div>
+      <div class="card-body">
+        <table>
+          <tr><th>命令</th><th>作用</th><th>关键选项</th></tr>
+          <tr>
+            <td class="mono">sed -i 's/old/new/g' file</td>
+            <td>原地替换文本</td>
+            <td class="mono">-i (in-place), g (全行替换)</td>
+          </tr>
+          <tr>
+            <td class="mono">find dir -type f</td>
+            <td>递归查找文件</td>
+            <td class="mono">-type f/d, -name "*.c"</td>
+          </tr>
+          <tr>
+            <td class="mono">stat -c '%Y' file</td>
+            <td>打印文件修改时间（秒）</td>
+            <td class="mono">-c 格式字符串</td>
+          </tr>
+          <tr>
+            <td class="mono">inotifywait -e close_write f</td>
+            <td>等待文件被写入后退出</td>
+            <td class="mono">-e 事件类型</td>
+          </tr>
+          <tr>
+            <td class="mono">tr ':' '\n'</td>
+            <td>字符替换 / 分割</td>
+            <td class="mono">-d 删除, -s 压缩</td>
+          </tr>
+          <tr>
+            <td class="mono">grep -oE 'pattern'</td>
+            <td>只输出匹配部分</td>
+            <td class="mono">-o 只匹配部分, -E 扩展正则</td>
+          </tr>
+          <tr>
+            <td class="mono">sort | uniq -c | sort -rn</td>
+            <td>计频 + 按频次排序</td>
+            <td class="mono">-r 逆序, -n 数值</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- QUIZ SECTION -->
+  <!-- ════════════════════════════════════════════ -->
+  <div id="quiz">
+    <div class="quiz-section-title">🎯 练习题</div>
+    <p class="quiz-subtitle">点击题目展开答案 · 先自己想再看 · 在 vlab 终端验证</p>
+
+    <!-- Q1 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty easy">简单</span>
+        <div class="quiz-q">
+          <div class="q-num">Q1</div>
+          下面脚本运行后 <code>pwd</code> 会输出什么？为什么？<br>
+          <code>#!/bin/dash</code><br>
+          <code>cd /tmp</code><br>
+          <code>echo "Now in /tmp"</code>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmd">./script.sh</div>
+<div class="out good">Now in /tmp</div>
+<div class="cmd">pwd</div>
+<div class="out good">/home/z1234567   <span class="cmt">← 父 Shell 的目录没变！</span></div>
+          </div>
+        </div>
+        <div class="explain"><b>原因：</b>脚本在子 Shell 中运行，子 Shell 的 <code>cd</code> 不影响父 Shell 的当前目录。若想让 <code>cd</code> 生效，需要 <code>source ./script.sh</code>。</div>
+      </div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty easy">简单</span>
+        <div class="quiz-q">
+          <div class="q-num">Q2</div>
+          下列哪个命令的输出是 <code>/home/user</code> 而不是 <code>~/</code>？<br>
+          A. <code>echo '~/'</code>&nbsp;&nbsp;&nbsp;B. <code>echo "~/"</code>&nbsp;&nbsp;&nbsp;C. <code>echo ~/</code>&nbsp;&nbsp;&nbsp;D. <code>echo "$HOME/"</code>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <p style="color:var(--green);margin:12px 0;font-family:'Syne',sans-serif;font-weight:700;">C 和 D</p>
+        <div class="explain">
+          <b>A:</b> 单引号内 <code>~</code> 不展开，输出 <code>~/</code><br>
+          <b>B:</b> 双引号内 <code>~</code> 也不展开，输出 <code>~/</code><br>
+          <b>C:</b> 无引号，<code>~</code> 展开为 <code>/home/user</code> ✅<br>
+          <b>D:</b> <code>$HOME</code> 在双引号内展开 ✅<br><br>
+          规则：波浪号展开只在无引号时发生，或者在 <code>$HOME</code> 变量形式时在双引号内也会展开。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty easy">简单</span>
+        <div class="quiz-q">
+          <div class="q-num">Q3</div>
+          写一行命令，判断文件 <code>data.txt</code> 是否存在且可读，若是则打印 <code>OK</code>，否则打印 <code>FAIL</code>。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmd">[ -f data.txt -a -r data.txt ] && echo OK || echo FAIL</div>
+<div class="cmt"># 或者更清晰：</div>
+<div class="cmd">if [ -f data.txt ] && [ -r data.txt ]; then echo OK; else echo FAIL; fi</div>
+          </div>
+        </div>
+        <div class="explain">
+          <code>-f</code> 检查是否为普通文件（不是目录），<code>-r</code> 检查是否可读。两个条件用 <code>-a</code>（test 内）或 <code>&&</code>（test 外）组合。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty easy">简单</span>
+        <div class="quiz-q">
+          <div class="q-num">Q4</div>
+          <code>stat -c '%Y' main.c</code> 会输出什么格式的时间？用一句话解释它在 <code>recompile.sh</code> 中的作用。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmd">stat -c '%Y' main.c</div>
+<div class="out good">1615346166</div>
+<div class="cmt"># Unix 时间戳：从 1970-01-01 00:00:00 UTC 起的秒数</div>
+          </div>
+        </div>
+        <div class="explain">
+          输出的是 <b>Unix 时间戳（整数秒）</b>。在 <code>recompile.sh</code> 中，脚本把上一次的时间戳保存在变量里，每秒比较一次：如果时间戳变了，说明文件被保存过，就重新编译并运行。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q5</div>
+          写一个脚本 <code>is_business_hours.sh</code>，在上班时间（9:00–17:00）退出状态为 0，否则为 1。<br>
+          并在命令行验证：上班时间时 <code>./is_business_hours.sh && echo "In office"</code> 应输出 <code>In office</code>。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">hour</div><div class="out">=$(date <span class="str">'+%H'</span>)   <span class="cmt"># 24小时制，如 "09" "15"</span></div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$hour"</span> <span class="flag">-ge</span> 9 ] && [ <span class="str">"$hour"</span> <span class="flag">-lt</span> 17 ]; <span class="kw">then</span></div>
+<div class="out">    <span class="kw">exit</span> 0</div>
+<div class="out"><span class="kw">else</span></div>
+<div class="out">    <span class="kw">exit</span> 1</div>
+<div class="out"><span class="kw">fi</span></div>
+<br>
+<div class="cmd">chmod +x is_business_hours.sh</div>
+<div class="cmd">./is_business_hours.sh && echo "In office" || echo "After hours"</div>
+          </div>
+        </div>
+        <div class="explain">
+          <code>date '+%H'</code> 输出两位小时（00–23）。注意用 <code>-ge</code>/<code>-lt</code> 做数值比较，不要用 <code>=</code>（字符串比较）。<b>09</b> 作为字符串比较可能有问题，但作为整数没问题。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q6 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q6</div>
+          修复 Shruti 的脚本，使符号链接正确指向 <code>~/friends/</code> 里的图片文件，且能处理文件名含空格的情况。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmt"># ✅ 推荐写法：用 glob 代替 ls，用 $HOME 代替 ~</div>
+<div class="out"><span class="kw">for</span> image_file <span class="kw">in</span> ~/friends/*; <span class="kw">do</span></div>
+<div class="out">    ln <span class="flag">-s</span> <span class="str">"$image_file"</span> .</div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># 或者：</div>
+<div class="out"><span class="kw">for</span> image_file <span class="kw">in</span> <span class="str">"$HOME"</span>/friends/*; <span class="kw">do</span></div>
+<div class="out">    ln <span class="flag">-s</span> <span class="str">"$image_file"</span> .</div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># 验证链接是否正确</div>
+<div class="cmd">ls -la | grep '\->'</div>
+          </div>
+        </div>
+        <div class="explain">
+          两个关键修复：<br>
+          1. <b>不用 <code>ls</code></b>：直接用 glob <code>~/friends/*</code>，文件名含空格也不会出错<br>
+          2. <b>不在双引号里写 <code>~</code></b>：直接用 <code>~/friends/*</code>（无引号）或 <code>"$HOME/friends/*"</code>（但这样 * 不展开），最佳实践是 <code>"$image_file"</code> 配合 glob。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q7 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q7</div>
+          写一行 <code>sed</code> 命令，把文件 <code>notes.txt</code> 里所有 <code>COMP2041</code> 替换为 <code>COMP2042</code>，并且同时把 <code>COMP9044</code> 替换为 <code>COMP9042</code>，原地修改文件。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmd">sed -i 's/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g' notes.txt</div>
+<div class="cmt"># 或者用多个 -e：</div>
+<div class="cmd">sed -i -e 's/COMP2041/COMP2042/g' -e 's/COMP9044/COMP9042/g' notes.txt</div>
+<br>
+<div class="cmt"># 测试验证：</div>
+<div class="cmd">echo "COMP2041 is renamed to COMP9044 too" > notes.txt</div>
+<div class="cmd">sed -i 's/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g' notes.txt</div>
+<div class="cmd">cat notes.txt</div>
+<div class="out good">COMP2042 is renamed to COMP9042 too</div>
+          </div>
+        </div>
+        <div class="explain">
+          <code>sed -i</code> 意思是 in-place 原地编辑。分号 <code>;</code> 分隔多个 sed 命令，<code>g</code> 标志表示替换该行的所有匹配，而不只是第一个。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q8 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q8</div>
+          写一个脚本 <code>is_prime.sh</code>，接受一个整数参数，若是质数打印 <code>N is prime</code> 并以退出状态 0 结束；否则打印 <code>N is not prime</code> 并以退出状态 1 结束。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">n</div><div class="out">=$1</div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$n"</span> <span class="flag">-lt</span> 2 ]; <span class="kw">then</span></div>
+<div class="out">    echo <span class="str">"$n is not prime"</span>; <span class="kw">exit</span> 1</div>
+<div class="out"><span class="kw">fi</span></div>
+<div class="var">i</div><div class="out">=2</div>
+<div class="out"><span class="kw">while</span> [ <span class="str">"$i"</span> <span class="flag">-lt</span> <span class="str">"$n"</span> ]; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ $(( n % i )) <span class="flag">-eq</span> 0 ]; <span class="kw">then</span></div>
+<div class="out">        echo <span class="str">"$n is not prime"</span>; <span class="kw">exit</span> 1</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out">    <span class="var">i</span>=$(( i + 1 ))</div>
+<div class="out"><span class="kw">done</span></div>
+<div class="out">echo <span class="str">"$n is prime"</span>; <span class="kw">exit</span> 0</div>
+<br>
+<div class="cmd">./is_prime.sh 42</div>
+<div class="out good">42 is not prime</div>
+<div class="cmd">./is_prime.sh 113</div>
+<div class="out good">113 is prime</div>
+          </div>
+        </div>
+        <div class="explain">
+          核心思路：对每个 <code>i</code>（从 2 到 n-1），检查 <code>n % i == 0</code>。若整除则不是质数。注意 <b>n &lt; 2 是特殊情况</b>（0、1 不是质数）。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q9 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q9</div>
+          写 <code>primes.sh</code>，调用 <code>is_prime.sh</code>，打印所有小于给定数字的质数（如 <code>./primes.sh 30</code> 输出 2 3 5 7 11 13 17 19 23 29）。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">limit</div><div class="out">=$1</div>
+<div class="var">i</div><div class="out">=2</div>
+<div class="out"><span class="kw">while</span> [ <span class="str">"$i"</span> <span class="flag">-lt</span> <span class="str">"$limit"</span> ]; <span class="kw">do</span></div>
+<div class="out">    ./is_prime.sh <span class="str">"$i"</span> > /dev/null && echo <span class="str">"$i"</span></div>
+<div class="out">    <span class="var">i</span>=$(( i + 1 ))</div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmd">./primes.sh 30</div>
+<div class="out good">2  3  5  7  11  13  17  19  23  29</div>
+          </div>
+        </div>
+        <div class="explain">
+          <code>./is_prime.sh "$i" > /dev/null</code>：把输出丢弃，只用退出状态。<code>&&</code> 在退出状态为 0（即是质数）时才执行 <code>echo</code>。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q10 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q10</div>
+          <code>update_course_code.sh</code> 接受文件或目录作为参数：若是文件直接替换，若是目录则递归处理其中所有文件。写出完整脚本。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">do_replace</div><div class="out">() {</div>
+<div class="out">    sed <span class="flag">-i</span> <span class="str">'s/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g'</span> <span class="str">"$1"</span></div>
+<div class="out">}</div>
+<br>
+<div class="out"><span class="kw">for</span> arg <span class="kw">in</span> <span class="str">"$@"</span>; <span class="kw">do</span></div>
+<div class="out">    <span class="kw">if</span> [ <span class="flag">-d</span> <span class="str">"$arg"</span> ]; <span class="kw">then</span></div>
+<div class="out">        find <span class="str">"$arg"</span> <span class="flag">-type f</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> file; <span class="kw">do</span></div>
+<div class="out">            do_replace <span class="str">"$file"</span></div>
+<div class="out">        <span class="kw">done</span></div>
+<div class="out">    <span class="kw">elif</span> [ <span class="flag">-f</span> <span class="str">"$arg"</span> ]; <span class="kw">then</span></div>
+<div class="out">        do_replace <span class="str">"$arg"</span></div>
+<div class="out">    <span class="kw">else</span></div>
+<div class="out">        echo <span class="str">"$0: $arg: not a file or directory"</span> 1>&amp;2</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+        <div class="explain">
+          用函数 <code>do_replace</code> 避免重复代码。<code>find -type f</code> 递归找所有普通文件，<code>IFS= read -r file</code> 安全读取（支持含空格的文件名）。错误信息用 <code>1>&amp;2</code> 重定向到 stderr。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q11 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty medium">中等</span>
+        <div class="quiz-q">
+          <div class="q-num">Q11</div>
+          解释 <code>inotifywait</code> 比 <code>stat</code> 轮询方案更好的原因，并写出基于 <code>inotifywait</code> 的 <code>recompile.sh</code> 核心循环。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">cfile</div><div class="out">=$1</div>
+<div class="out"><span class="kw">while</span> inotifywait <span class="flag">-e</span> close_write <span class="str">"$cfile"</span> 2>/dev/null; <span class="kw">do</span></div>
+<div class="out">    echo <span class="str">"=== File changed, recompiling... ==="</span></div>
+<div class="out">    <span class="kw">if</span> gcc <span class="str">"$cfile"</span> <span class="flag">-o</span> a.out; <span class="kw">then</span></div>
+<div class="out">        echo <span class="str">"=== Running: ==="</span></div>
+<div class="out">        ./a.out</div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+        <div class="explain">
+          <b>轮询 (stat) 的问题：</b>每秒都要运行 stat 命令，即使文件没变，也消耗 CPU 和电池。<br><br>
+          <b>inotifywait 的优势：</b>它向 Linux 内核注册对文件系统事件的监听（inotify API），进程会 <b>阻塞休眠</b> 直到文件真的发生变化，CPU 占用接近于零。这种机制叫做 <b>事件驱动</b>，比轮询高效得多。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q12 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty hard">较难</span>
+        <div class="quiz-q">
+          <div class="q-num">Q12</div>
+          写 <code>which.sh</code>，接受一个程序名，在 <code>$PATH</code> 各目录里查找该程序并用 <code>ls -la</code> 显示详情。若找不到打印 <code>NAME not found</code>。要求能处理目录名含空格的情况。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="var">program</div><div class="out">=$1</div>
+<div class="var">found</div><div class="out">=0</div>
+<br>
+<div class="cmt"># 把 PATH 中的冒号替换为换行，用 read 安全逐行读取</div>
+<div class="out">echo <span class="str">"$PATH"</span> | tr <span class="str">':'</span> <span class="str">'\n'</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> dir; <span class="kw">do</span></div>
+<div class="out">    target=<span class="str">"${dir}/${program}"</span></div>
+<div class="out">    <span class="kw">if</span> [ <span class="flag">-x</span> <span class="str">"$target"</span> ] && [ <span class="flag">-f</span> <span class="str">"$target"</span> ]; <span class="kw">then</span></div>
+<div class="out">        ls <span class="flag">-la</span> <span class="str">"$target"</span></div>
+<div class="out">        <span class="kw">exit</span> 0   <span class="cmt"># 找到了，退出 while 的子 shell</span></div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span> || echo <span class="str">"$program not found"</span></div>
+<br>
+<div class="cmd">./which.sh cat</div>
+<div class="out good">-rwxr-xr-x 1 root root 43936 /bin/cat</div>
+<div class="cmd">./which.sh xyz123</div>
+<div class="out good">xyz123 not found</div>
+          </div>
+        </div>
+        <div class="explain">
+          关键点：<br>
+          1. <code>tr ':' '\n'</code> 分割 PATH<br>
+          2. <code>IFS= read -r dir</code> 安全读取（支持含空格目录名，不分割）<br>
+          3. <code>-x</code> 检查可执行，<code>-f</code> 确认是文件而不是目录<br>
+          4. 管道中的 <code>exit 0</code> 只退出子 shell（while 在管道里），所以用 <code>|| echo "not found"</code> 在整个管道失败时打印找不到的信息。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q13 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty hard">较难</span>
+        <div class="quiz-q">
+          <div class="q-num">Q13</div>
+          解释下面代码为什么 <code>found</code> 变量在循环后始终是 0，即使循环内确实赋值了 1：<br>
+          <code>found=0</code><br>
+          <code>echo "$PATH" | tr ':' '\n' | while read dir; do found=1; done</code><br>
+          <code>echo $found</code>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="explain">
+          这是经典的 <b>管道子 Shell 陷阱</b>。<br><br>
+          在 Shell 中，管道的每个部分都在 <b>独立的子 Shell</b> 中运行。因此 <code>while read dir; do found=1; done</code> 运行在子 Shell 里，对 <code>found</code> 的赋值只影响子 Shell 的变量，<b>父 Shell 的 <code>found</code> 不变</b>，依然是 0。<br><br>
+          <b>解决方案：</b><br>
+          1. 用进程替换（bash）：<code>while read dir; do found=1; done < &lt;(echo "$PATH" | tr ':' '\n')</code><br>
+          2. 用临时文件：<code>echo "$PATH" | tr ':' '\n' > /tmp/dirs; while read dir; do found=1; done &lt; /tmp/dirs</code><br>
+          3. 在子 Shell 里用 <code>exit</code> 状态传递结果，然后用 <code>$?</code> 检查。
+        </div>
+      </div>
+    </div>
+
+    <!-- Q14 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty hard">较难</span>
+        <div class="quiz-q">
+          <div class="q-num">Q14</div>
+          下面的 <code>for</code> 循环有什么潜在 bug？如何修复？<br>
+          <code>for f in $(ls ~/photos); do echo "$f"; done</code>
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="explain">
+          存在 <b>两个 bug</b>：<br><br>
+          <b>Bug 1：单词分割</b> — <code>$(ls)</code> 的输出经过单词分割，含空格的文件名（如 <code>my photo.jpg</code>）会被拆成两个词 <code>my</code> 和 <code>photo.jpg</code>，循环会错误地把它们当成两个单独的文件名。<br><br>
+          <b>Bug 2：波浪号在 $() 外但结果仍然是字符串</b> — 这里 <code>~/photos</code> 会展开，但 ls 的输出是文件名而不是路径，后续处理时会缺少完整路径。<br><br>
+          <b>✅ 修复：用 glob</b>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmt"># ✅ 正确：glob 不会做单词分割，且保留完整路径</div>
+<div class="out"><span class="kw">for</span> f <span class="kw">in</span> ~/photos/*; <span class="kw">do</span></div>
+<div class="out">    echo <span class="str">"$f"</span></div>
+<div class="out"><span class="kw">done</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q15 -->
+    <div class="quiz-card" onclick="toggleQuiz(this)">
+      <div class="quiz-header">
+        <span class="difficulty hard">较难</span>
+        <div class="quiz-q">
+          <div class="q-num">Q15</div>
+          写一个管道命令，从 <code>mlalias</code> 的输出中只提取 <code>z</code> 开头的 UNSW zID（格式：z 后跟 7 位数字）。<br>假设 <code>mlalias cs2041.25T2.tutors</code> 的输出已如课件所示。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <div class="terminal-body">
+<div class="cmt"># 方法 1：grep 匹配整行只有 zID 的行，再去掉空格</div>
+<div class="cmd">mlalias cs2041.25T2.tutors | grep -E '^\s+z[0-9]{7}\s*$' | tr -d ' '</div>
+<br>
+<div class="cmt"># 方法 2：grep -o 只输出匹配部分</div>
+<div class="cmd">mlalias cs2041.25T2.tutors | grep -oE '\bz[0-9]{7}\b'</div>
+<br>
+<div class="out good">z9300162</div>
+<div class="out good">z5115658</div>
+<div class="out good">z5218654</div>
+<div class="out good">...</div>
+          </div>
+        </div>
+        <div class="explain">
+          <b>方法 1</b> 的正则 <code>^\s+z[0-9]{7}\s*$</code>：以空格开头，z 后跟恰好 7 位数字，到行尾。再用 <code>tr -d ' '</code> 去掉缩进空格。<br><br>
+          <b>方法 2</b> 的 <code>-oE '\bz[0-9]{7}\b'</code>：<code>-o</code> 只输出匹配部分，<code>\b</code> 是词边界，<code>{7}</code> 精确匹配 7 位数字。
+        </div>
+      </div>
+    </div>
+
+    <!-- BOSS Q -->
+    <div class="section-header" style="margin-top:48px;">
+      <span class="section-num" style="background:rgba(188,140,255,0.15);border-color:rgba(188,140,255,0.3);color:var(--purple);">BOSS</span>
+      <span class="section-title">综合挑战题</span>
+    </div>
+
+    <div class="quiz-card" onclick="toggleQuiz(this)" style="border-color:rgba(188,140,255,0.3);">
+      <div class="quiz-header">
+        <span class="difficulty boss">综合</span>
+        <div class="quiz-q">
+          <div class="q-num">BOSS</div>
+          <strong>全自动课程迁移 + 监控脚本</strong><br><br>
+          写一个脚本 <code>migrate_and_watch.sh</code>，实现以下功能：<br>
+          1. 接受一个目录作为参数，递归把目录中所有文件的 <code>COMP2041</code>→<code>COMP2042</code>、<code>COMP9044</code>→<code>COMP9042</code><br>
+          2. 在目录中找出所有 <code>.c</code> 文件，对每个文件运行 <code>is_prime.sh</code> 统计文件行数（用 <code>wc -l</code>），如果行数是质数，打印 <code>FILENAME has PRIME lines!</code>，否则打印 <code>FILENAME has N lines</code><br>
+          3. 把所有输出同时写到终端和 <code>report.log</code> 文件（提示：<code>tee</code>）<br>
+          4. 最后统计有多少个 <code>.c</code> 文件行数是质数，打印 <code>Summary: X/Y files have prime line counts</code><br><br>
+          在 vlab 上创建测试目录和文件验证你的脚本。
+        </div>
+        <span class="chevron">›</span>
+      </div>
+      <div class="quiz-answer">
+        <div class="answer-label">参考答案</div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">migrate_and_watch.sh</div></div>
+          <div class="terminal-body">
+<div class="out"><span class="kw">#!/bin/dash</span></div>
+<div class="out"><span class="kw">if</span> [ <span class="str">"$#"</span> <span class="flag">-ne</span> 1 ] || [ ! <span class="flag">-d</span> <span class="str">"$1"</span> ]; <span class="kw">then</span></div>
+<div class="out">    echo <span class="str">"Usage: $0 &lt;directory&gt;"</span> 1>&amp;2; <span class="kw">exit</span> 1</div>
+<div class="out"><span class="kw">fi</span></div>
+<div class="var">dir</div><div class="out">=$1</div>
+<div class="var">logfile</div><div class="out">=report.log</div>
+<div class="out">> <span class="str">"$logfile"</span>   <span class="cmt"># 清空日志</span></div>
+<br>
+<div class="cmt"># Step 1：递归替换课程编号</div>
+<div class="out">echo <span class="str">"=== Step 1: Updating course codes ==="</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+<div class="out">find <span class="str">"$dir"</span> <span class="flag">-type f</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> file; <span class="kw">do</span></div>
+<div class="out">    sed <span class="flag">-i</span> <span class="str">'s/COMP2041/COMP2042/g; s/COMP9044/COMP9042/g'</span> <span class="str">"$file"</span></div>
+<div class="out">    echo <span class="str">"  Updated: $file"</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># Step 2 & 3：检查 .c 文件行数是否为质数</div>
+<div class="out">echo <span class="str">"=== Step 2: Checking .c file line counts ==="</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+<div class="var">total</div><div class="out">=0</div>
+<div class="var">prime_count</div><div class="out">=0</div>
+<div class="out">find <span class="str">"$dir"</span> <span class="flag">-name</span> <span class="str">'*.c'</span> <span class="flag">-type f</span> | <span class="kw">while</span> IFS= read <span class="flag">-r</span> cfile; <span class="kw">do</span></div>
+<div class="out">    lines=$(wc <span class="flag">-l</span> < <span class="str">"$cfile"</span>)</div>
+<div class="out">    <span class="kw">if</span> ./is_prime.sh <span class="str">"$lines"</span> > /dev/null 2>&amp;1; <span class="kw">then</span></div>
+<div class="out">        echo <span class="str">"  $cfile has PRIME lines! ($lines)"</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+<div class="out">    <span class="kw">else</span></div>
+<div class="out">        echo <span class="str">"  $cfile has $lines lines"</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+<div class="out">    <span class="kw">fi</span></div>
+<div class="out"><span class="kw">done</span></div>
+<br>
+<div class="cmt"># Step 4：统计（从日志文件数 PRIME 行）</div>
+<div class="var">total</div><div class="out">=$(find <span class="str">"$dir"</span> <span class="flag">-name</span> <span class="str">'*.c'</span> <span class="flag">-type f</span> | wc <span class="flag">-l</span>)</div>
+<div class="var">prime_count</div><div class="out">=$(grep <span class="flag">-c</span> <span class="str">'PRIME lines'</span> <span class="str">"$logfile"</span>)</div>
+<div class="out">echo <span class="str">"=== Summary: $prime_count/$total files have prime line counts ==="</span> | tee <span class="flag">-a</span> <span class="str">"$logfile"</span></div>
+          </div>
+        </div>
+        <div class="terminal" style="margin-top:16px;">
+          <div class="terminal-bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="terminal-label">测试步骤</div></div>
+          <div class="terminal-body">
+<div class="cmt"># 创建测试环境</div>
+<div class="cmd">mkdir testdir</div>
+<div class="cmt"># 创建一个 7 行 .c 文件（7 是质数）</div>
+<div class="cmd">printf '#include &lt;stdio.h&gt;\nint main() {\n    // COMP2041\n    int i;\n    for(i=0;i&lt;3;i++)\n        printf("%d\n",i);\n}\n' > testdir/hello.c</div>
+<div class="cmt"># 运行脚本</div>
+<div class="cmd">chmod +x migrate_and_watch.sh is_prime.sh</div>
+<div class="cmd">./migrate_and_watch.sh testdir</div>
+<div class="out good">=== Step 1: Updating course codes ===</div>
+<div class="out good">  Updated: testdir/hello.c</div>
+<div class="out good">=== Step 2: Checking .c file line counts ===</div>
+<div class="out good">  testdir/hello.c has PRIME lines! (7)</div>
+<div class="out good">=== Summary: 1/1 files have prime line counts ===</div>
+          </div>
+        </div>
+        <div class="explain">
+          这道题综合了本周所有核心知识：<br>
+          • <b>子 Shell 与变量</b>：注意管道中变量修改不影响父 Shell，用日志文件传递统计结果<br>
+          • <b>引号处理</b>：<code>"$file"</code>、<code>"$dir"</code> 全程双引号保护，支持含空格路径<br>
+          • <b>test / 条件判断</b>：检查参数数量、是否为目录<br>
+          • <b>for/while 循环</b>：用 <code>find | while IFS= read -r</code> 安全遍历<br>
+          • <b>sed 替换</b>：一条命令做多个替换<br>
+          • <b>管道组合</b>：<code>tee</code> 同时输出到终端和文件，<code>grep -c</code> 统计匹配行数<br>
+          • <b>调用子脚本</b>：用 <code>is_prime.sh</code> 的退出状态做决策，<code>> /dev/null 2>&amp;1</code> 静默输出
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end quiz -->
+
+</div><!-- end container -->
+
+<div class="score-tracker">
+  <div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;">展开题数</div>
+  <div class="score-num" id="scoreNum">0</div>
+  <div style="font-size:11px;color:var(--text-dim);">/ 16 题</div>
+</div>
+
+<script>
+  // Toggle quiz cards
+  function toggleQuiz(card) {
+    card.classList.toggle('open');
+    updateScore();
+  }
+
+  function updateScore() {
+    const opened = document.querySelectorAll('.quiz-card.open').length;
+    document.getElementById('scoreNum').textContent = opened;
+  }
+
+  // Reading progress bar
+  window.addEventListener('scroll', () => {
+    const doc = document.documentElement;
+    const scrollTop = doc.scrollTop || document.body.scrollTop;
+    const scrollHeight = doc.scrollHeight - doc.clientHeight;
+    const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+    document.getElementById('progress').style.width = progress + '%';
+  });
+</script>
+</body>
+</html>
